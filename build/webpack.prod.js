@@ -26,7 +26,7 @@ module.exports = merge(common, {
                 {
                     loader:'sass-loader',
                     options:{
-                        data: fs.readFileSync(path.join(__dirname, '../assets/common/common.scss'))
+                        data: fs.readFileSync(path.join(__dirname, '../src/assets/common/common.scss'))
                     }
                 },
             ]

@@ -2,66 +2,92 @@ const path = require('path');
 const glob = require('glob');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const AddAssetHtmlPlugin = require('add-asset-html-webpack-plugin');
-function getEntryRoute() {
-    const entryRoute = glob.sync('./src/*/index.js');
-    if (entryRoute.length == 0) {
-        console.error('入口的数量为0。');
-    }
-    return entryRoute;
-}
+const { VueLoaderPlugin } = require('vue-loader');
+
 /**
  * 
- * @param {string} route 通过glob获取的路径。
- * @returns {string} 返回entry对象的key. 
+ * @description basePath 下所有的js文件的路径
+ * @param {string} basePath 
  */
-function getName(route) {
-    return route.slice(6, -9);
+function getFileDir(basePath) {
+    const fileDir = glob.sync(basePath +'**/*.js');
+    if (fileDir.length == 0) {
+        throw Error(basePath + '路径下没有js文件,请检查');
+    }
+    return fileDir;
+}  
+/**
+ * 
+ * @param {*} basePath 
+ * @param {*} entryFileDir
+ * @description 获取路径映射 
+ */
+function getDirMap(basePath, entryFileDir) {
+    const dirMap = {};
+    entryFileDir.forEach((item,index) => {
+        const dir = item.replace(basePath, '').split('/');
+        dir.pop();
+        dirMap[dir.join('/')] = getPath('.' + item);
+    });
+    return dirMap;
 }
 
 /**
  * 
  * @param {string} j entry对象的key.
  * @returns {string} template. 
+ * @description 如果目录中存在模板则使用目录中的模板否则使用通用模板。
  */
-function getTemplateFromPageConfig(j) {
-    const template = glob.sync(`./src/${j}/${j}.html`)[0]
+function getHTMLTemplate(i) {
+    const template = glob.sync(`./src/views/${i}/*.html`)[0]
     if (!template) {
-        console.error(`获取模板文件错误,请检查src/${j}/${j}.html文件是否存在`);
+        return glob.sync('./src/template/index.html')[0];
     }
     return template;
 }
-
-function getHtmLWebpackPluginforMutil(entryRoute) {
-    return entryRoute.map(item => getName(item)).map(i => (
-        new HtmlWebpackPlugin({
+/**
+ * 
+ * @param {*} routeName
+ * @description 生成 HtmlWebpackPlugin
+ */
+function createHtmLWebpackPlugin(dirFragment) {
+    return dirFragment.map(i => (
+        new HtmlWebpackPlugin(
+            {
             filename: `${i}.html`,
-            template: getTemplateFromPageConfig(i),
+            template: getHTMLTemplate(i),
             inject: true,
             chunks: [i],
-        })
+        }
+        )    
     ));
-}
-
-function getEntry(entryRoute) {
-    const entry = {};
-    entryRoute.forEach(item => {
-        entry[getName(item)] = item;
-    });
-    return entry;
 }
 
 function getPath(pathStr) {
     return path.resolve(__dirname, pathStr);
 }
 
+
+// 基础路径
+const basePath = './src/views/'; 
+const entryFileDir = getFileDir(basePath);
+const dirMap = getDirMap(basePath, entryFileDir);
+const dirFragment = Object.keys(dirMap);
+
+// webpack 基础配置
 const webpackBaseConf = {
-    entry: getEntry(getEntryRoute()),
+    entry: dirMap,
     output: {
         filename: 'js/[name].js',
-        path: path.resolve(__dirname, '../dist')
+        path: getPath('../dist'),
     },
     module: {
-        rules: [{
+        rules: [
+            {
+                test: /\.vue$/,
+                loader: 'vue-loader'
+            },
+            {
                 test: /\.js$/,
                 exclude: /node_modules/,
                 loader: 'babel-loader'
@@ -78,23 +104,25 @@ const webpackBaseConf = {
         ]
     },
     plugins: [
-        ...getHtmLWebpackPluginforMutil(getEntryRoute()),
+        new VueLoaderPlugin(),
+        ...createHtmLWebpackPlugin(dirFragment),
         new AddAssetHtmlPlugin({
             filepath:require.resolve('normalize.css'),
             outputPath: 'css/',
-            publicPath: 'css/',
+            publicPath: '/css',
             typeOfAsset: 'css',
         }),
     ],
     resolve: {
         extensions: ['.js', '.scss', '.png', 'jpg'],
         alias: {
-            'common': getPath('../assets/common'),
-            'images': getPath('../assets/images'),
-            'json': getPath('../assets/json'),
-            'fonts': getPath('../assets/fonts'),
+            'common': getPath('../src/assets/common'),
+            'images': getPath('../src/assets/images'),
+            'json': getPath('../src/assets/json'),
+            'fonts': getPath('../src/assets/fonts'),
         },
-    }
+    },
+    stats: 'errors-only'
 }
 
 module.exports = webpackBaseConf;

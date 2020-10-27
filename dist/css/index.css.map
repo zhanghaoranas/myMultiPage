@@ -1,1 +1,0 @@
-{"version":3,"sources":["webpack:///./src/index/index.scss"],"names":[],"mappings":"AAAA;AACA,mBAAmB","file":"css/index.css","sourcesContent":["ul {\n  list-style: none; }\n"],"sourceRoot":""}
